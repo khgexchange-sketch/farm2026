@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Farm RPG Prototype</title>
+<style>
+body{background:#1d1f27;color:white;font-family:Arial}
+.container{width:1100px;margin:auto}
+.panel{border:1px solid #555;padding:10px;margin:10px 0;background:#222}
+h2{color:#00ffa6}
+button{padding:7px 15px;margin:3px}
+.grid{display:grid;grid-template-columns:repeat(5,120px);gap:10px}
+.cell{width:120px;height:120px;border:1px solid #777;display:flex;
+align-items:center;justify-content:center;background:#333;font-size:40px}
+.done{background:#35a64a}
+.empty{font-size:40px;color:#ff5555;}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>FARM – RPG SYSTEM</h1>
+
+<div class="panel">
+<h2>Thông tin nhân vật</h2>
+<p>Tên nhân vật: <b>test001</b></p>
+<p>
+💵: <span id="xu">1000</span> |
+Strength: <span id="str">1000</span> |
+HP: <span id="hp">1000</span> |
+G: <span id="goldf">1000</span> |
+🪙: <span id="bac">0</span> |
+📯: <span id="vang">0</span> |
+Đã thu hoạch: <span id="harvest">0</span>
+</p>
+</div>
+
+<div class="panel">
+<h2>🌱 Trồng trọt</h2>
+<p>Số ô đất: <span id="slots">3</span> / 20 
+<button onclick="unlockLand()">Mở thêm ô đất</button></p>
+
+<div class="grid" id="land"></div>
+
+<select id="seed">
+<option value="rose">Hoa Hồng (200 💵 / 1h / bán 500)</option>
+<option value="cai">Bông Cải (500 💵 / 2h / bán 1000)</option>
+<option value="sam">Nhân Sâm (1000 💵 / 24h / bán 15000)</option>
+</select>
+<button onclick="plant()">Trồng</button>
+<button onclick="harvest()">Thu hoạch</button>
+</div>
+
+<div class="panel">
+<h2>🏋️ Luyện sức</h2>
+<button onclick="train()">Tập gym (10s / +0.02 STR / -25HP)</button>
+</div>
+
+<div class="panel">
+<h2>🎁 Hệ thống đặc biệt</h2>
+
+<p><b>Nhập code nhận G (mỗi code chỉ dùng 1 lần)</b></p>
+<input id="giftcode" placeholder="Nhập code...">
+<button onclick="useCode()">Nhận</button>
+
+<p><b>Bán vật phẩm</b></p>
+<button onclick="sellItem()">Bán → +1000 💵</button>
+
+<h3>🎊 Mở Bao Lì Xì</h3>
+<button onclick="openChest('normal')">Thường (500 💵)</button>
+<button onclick="openChest('vip')">VIP (1000 💵)</button>
+<button onclick="openChest('supervip')">SIÊU VIP (100000 💵)</button>
+
+<p id="chestResult"></p>
+</div>
+
+<div class="panel">
+<h2>🐲 Săn boss</h2>
+<select id="bossSel">
+<option value="1">Quan Vũ</option>
+<option value="2">Lữ Bố</option>
+<option value="3">Tà Thần</option>
+<option value="4">Đông Tà</option>
+<option value="5">BOSS</option>
+</select>
+<button onclick="fightBoss()">Đánh Boss</button>
+<p id="fightLog"></p>
+</div>
+
+<div class="panel">
+<h2>🎯 Nhiệm vụ</h2>
+<p id="mission"></p>
+</div>
+
+<div class="panel">
+<h2>🏆 Bảng Xếp Hạng – Top 1 (Auto)</h2>
+<p><b>Tá điền:</b> <span id="rankLandName">test001</span> – <span id="rankLandVal">3</span></p>
+<p><b>Cổ đông G:</b> <span id="rankGoldFName">test001</span> – <span id="rankGoldFVal">1000</span></p>
+<p><b>Đại cao thủ:</b> <span id="rankStrengthName">test001</span> – <span id="rankStrengthVal">1000</span></p>
+<p><b>Lắm 💵:</b> <span id="rankMoneyName">test001</span> – <span id="rankMoneyVal">1000</span></p>
+<p><b>Nhà nông:</b> <span id="rankFarmerName">test001</span> – <span id="rankFarmerVal">0</span></p>
+</div>
+
+</div>
+
+<script>
+let playerName="test001";
+
+let xu=1000,str=1000,hp=1000,harvested=0;
+let landSlots=3;
+let lands=[];
+let goldF=1000, bac=0, vang=0;
+
+let availableCodes = new Set(["test01","test02","test03","adtest01","adtest02","adtest03"]);
+
+const seeds={
+rose:{cost:200,time:3600,sell:500,icon:"🌺"},
+cai:{cost:500,time:7200,sell:1000,icon:"🪻"},
+sam:{cost:1000,time:86400,sell:15000,icon:"🪸"}
+};
+
+function render(){
+document.getElementById("xu").innerText=xu;
+document.getElementById("str").innerText=str.toFixed(2);
+document.getElementById("hp").innerText=hp;
+document.getElementById("slots").innerText=landSlots;
+document.getElementById("harvest").innerText=harvested;
+document.getElementById("goldf").innerText=goldF;
+document.getElementById("bac").innerText=bac;
+document.getElementById("vang").innerText=vang;
+
+let box="";
+for(let i=0;i<landSlots;i++){
+if(!lands[i]) box+=`<div class="cell empty">❌</div>`;
+else{
+let icon=lands[i].icon;
+if(lands[i].done) box+=`<div class="cell done">${icon}</div>`;
+else box+=`<div class="cell">${icon}</div>`;
+}
+}
+document.getElementById("land").innerHTML=box;
+
+checkMission();
+updateRanking();
+}
+render();
+
+function updateRanking(){
+document.getElementById("rankLandName").innerText=playerName;
+document.getElementById("rankLandVal").innerText=landSlots;
+
+document.getElementById("rankGoldFName").innerText=playerName;
+document.getElementById("rankGoldFVal").innerText=goldF;
+
+document.getElementById("rankStrengthName").innerText=playerName;
+document.getElementById("rankStrengthVal").innerText=str.toFixed(2);
+
+document.getElementById("rankMoneyName").innerText=playerName;
+document.getElementById("rankMoneyVal").innerText=xu;
+
+document.getElementById("rankFarmerName").innerText=playerName;
+document.getElementById("rankFarmerVal").innerText=harvested;
+}
+
+function unlockLand(){
+if(landSlots>=20)return alert("Đã max");
+let price;
+if(landSlots===3) price=10000;
+else price=60000+(landSlots-5)*50000;
+if(xu<price)return alert("Không đủ 💵");
+xu-=price;
+landSlots++;
+render();
+}
+
+function plant(){
+let s=document.getElementById("seed").value;
+if(xu<seeds[s].cost) return alert("Không đủ 💵");
+let idx=lands.findIndex(x=>!x);
+if(idx===-1 && lands.length<landSlots) idx=lands.length;
+if(idx===-1)return alert("Hết đất");
+xu-=seeds[s].cost;
+lands[idx]={t:Date.now()+seeds[s].time*1000,sell:seeds[s].sell,done:false,icon:seeds[s].icon};
+grow(idx);
+render();
+}
+
+function grow(i){
+let timer=setInterval(()=>{
+if(!lands[i])return clearInterval(timer);
+if(Date.now()>=lands[i].t){
+lands[i].done=true;
+clearInterval(timer);
+render();
+}
+},1000);
+}
+
+function harvest(){
+lands.forEach((p,i)=>{
+if(p && p.done){
+xu+=p.sell;
+harvested++;
+lands[i]=null;
+}
+});
+render();
+}
+
+function train(){
+if(hp<25)return alert("Không đủ HP");
+hp-=25;
+setTimeout(()=>{
+str+=0.02;
+render();
+},10000);
+}
+
+function fightBoss(){
+let id=document.getElementById("bossSel").value;
+let bossList={
+1:{hp:1000,atk:500,reward:1000},
+2:{hp:2000,atk:1000,reward:5000},
+3:{hp:5000,atk:5000,reward:10000},
+4:{hp:10000,atk:10000,reward:20000},
+5:{hp:100000,atk:100000,reward:500000}
+};
+let b={...bossList[id]};
+let log="";
+while(b.hp>50 && hp>50){
+if(str>b.atk) b.hp-= (str-b.atk);
+else hp-= (b.atk-str);
+if(hp<=0) break;
+}
+if(b.hp<=50){
+xu+=b.reward;
+log="Thắng! Nhận "+b.reward+" 💵";
+}else log="Thua cuộc!";
+document.getElementById("fightLog").innerText=log;
+render();
+}
+
+function checkMission(){
+let t="";
+if(harvested>=1000)t+="🏅 Nhà nông chăm chỉ<br>";
+if(str>=10000)t+="🏅 Cân tất<br>";
+if(xu>=1000000000)t+="🏅 Bá hộ làng<br>";
+document.getElementById("mission").innerHTML=t||"Chưa hoàn thành nhiệm vụ nào";
+}
+
+function useCode(){
+let c=document.getElementById("giftcode").value;
+if(!c)return alert("Vui lòng nhập code!");
+if(!availableCodes.has(c)){
+alert("Code không hợp lệ hoặc đã dùng!");
+return;
+}
+availableCodes.delete(c);
+goldF++;
+alert("Nhận 1 G thành công!");
+document.getElementById("giftcode").value="";
+render();
+}
+
+function sellItem(){
+xu+=1000;
+alert("Đã bán vật phẩm +1000 💵");
+render();
+}
+
+function openChest(type){
+let r=Math.random()*100;
+
+if(type==="normal"){
+if(xu<500)return alert("Không đủ 💵!");
+if(!confirm("Mở Bao Lì Xì THƯỜNG mất 500 💵, chắc chắn không?")) return;
+xu-=500;
+if(r<=50){xu+=1000;document.getElementById("chestResult").innerText="🎉 Thường trúng 1000 💵";}
+else{xu+=1;document.getElementById("chestResult").innerText="😢 chỉ được 1 💵";}
+}
+
+else if(type==="vip"){
+if(xu<1000)return alert("Không đủ 💵!");
+if(!confirm("Mở Bao Lì Xì VIP mất 1000 💵, chắc không?")) return;
+xu-=1000;
+if(r<=10){xu+=50000;document.getElementById("chestResult").innerText="🔥 VIP trúng 50,000 💵";}
+else{xu+=1;document.getElementById("chestResult").innerText="😢 chỉ được 1 💵";}
+}
+
+else if(type==="supervip"){
+if(xu<100000)return alert("Không đủ 💵!");
+if(!confirm("Mở Bao Lì Xì SIÊU VIP mất 100000 💵, chắc chắn?")) return;
+xu-=100000;
+if(r<=45){xu+=1000000;document.getElementById("chestResult").innerText="🚀 SIÊU VIP trúng 1,000,000 💵";}
+else{xu+=1;document.getElementById("chestResult").innerText="😢 chỉ được 1 💵";}
+}
+
+render();
+}
+</script>
+</body>
+</html>
