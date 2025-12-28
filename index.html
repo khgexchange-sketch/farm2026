@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Farm Game Test</title>
+  <style>
+    body { background:#111; color:white; text-align:center; font-family:Arial; }
+    button { padding:15px; font-size:18px; }
+  </style>
+</head>
+<body>
+
+<h1>Farm Game Demo</h1>
+<p>Điểm của bạn: <span id="score">0</span></p>
+<button onclick="addScore()">Trồng cây 🌱</button>
+
+<script>
+  let score = 0;
+  function addScore(){
+    score++;
+    document.getElementById("score").innerText = score;
+    localStorage.setItem("score", score); // lưu offline
+  }
+
+  // load lại khi mở lại game
+  if(localStorage.getItem("score")){
+    score = parseInt(localStorage.getItem("score"));
+    document.getElementById("score").innerText = score;
+  }
+</script>
+
+</body>
+</html>
